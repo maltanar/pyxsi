@@ -65,9 +65,17 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
 
     # now call xelab to generate the .so for the design to be simulated
     # TODO make debug controllable to allow faster sim when desired
+    # list of libs for xelab retrieved from Vitis HLS cosim cmdline
+    xelab_libs = [
+        "smartconnect_v1_0", "axi_protocol_checker_v1_1_12", "axi_protocol_checker_v1_1_13", 
+        "axis_protocol_checker_v1_1_11", "axis_protocol_checker_v1_1_12", "xil_defaultlib", 
+        "unisims_ver", "xpm", "floating_point_v7_1_16", "floating_point_v7_0_21"
+    ]
+
     cmd_xelab = [
         "xelab",
         "work." + top_module_name,
+        "-relax",
         "-prj",
         "rtlsim.prj",
         "-debug",
@@ -76,6 +84,10 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
         "-s",
         top_module_name,
     ]
+    for lib in xelab_libs:
+        cmd_xelab.append("-L")
+        cmd_xelab.append(lib)
+
     launch_process_helper(cmd_xelab, cwd=sim_out_dir)
     out_so_relative_path = "xsim.dir/%s/xsimk.so" % top_module_name
     out_so_full_path = sim_out_dir + "/" + out_so_relative_path
