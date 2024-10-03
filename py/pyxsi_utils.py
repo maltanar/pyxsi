@@ -143,15 +143,14 @@ def reset_rtlsim(sim, rst_name="ap_rst_n", active_low=True, clk_name="ap_clk"):
     for _ in range(2):
         toggle_clk(sim, clk_name)
 
-    signals_to_write = {}
-    signals_to_write[rst_name] = 1 if active_low else 0
-    toggle_clk(sim, clk_name, signals_to_write)
+    _write_signal(sim, rst_name, 1 if active_low else 0)
+    toggle_clk(sim, clk_name)
     toggle_clk(sim, clk_name)
 
 
-def toggle_clk(sim, clk_name="ap_clk", signals_to_write={}):
+def toggle_clk(sim, clk_name="ap_clk"):
     toggle_neg_edge(sim, clk_name=clk_name)
-    toggle_pos_edge(sim, clk_name=clk_name, signals_to_write=signals_to_write)
+    toggle_pos_edge(sim, clk_name=clk_name)
 
 
 def toggle_neg_edge(sim, clk_name="ap_clk"):
@@ -159,134 +158,6 @@ def toggle_neg_edge(sim, clk_name="ap_clk"):
     sim.run(5000)
 
 
-def toggle_pos_edge(sim, clk_name="ap_clk", signals_to_write={}):
+def toggle_pos_edge(sim, clk_name="ap_clk"):
     _write_signal(sim, clk_name, 1)
     sim.run(5000)
-    # Write IO signals a delta cycle after rising edge
-    if bool(signals_to_write):  # if dict non-empty
-        for sig in signals_to_write.keys():
-            _write_signal(sim, sig, signals_to_write[sig])
-    comb_update_and_trace(sim)
-
-
-def comb_update_and_trace(sim):
-    # TODO anything needed here for tracing or updates?
-    pass
-
-
-def rtlsim_multi_io(
-    sim,
-    io_dict,
-    num_out_values,
-    sname="_V_V_",
-    liveness_threshold=10000,
-    hook_preclk=None,
-    hook_postclk=None,
-):
-    """Runs the XSI-based simulation by passing the input values to the simulation,
-    toggle the clock and observing the execution time. Function contains also an
-    observation loop that can abort the simulation if no output value is produced
-    after a set number of cycles. Can handle multiple i/o streams. See function
-    implementation for details on how the top-level signals should be named.
-
-    Arguments:
-
-    * sim: the pyxsi object for simulation
-    * io_dict: a dict of dicts in the following format:
-      {"inputs" : {"in0" : <input_data>, "in1" : <input_data>},
-      "outputs" : {"out0" : [], "out1" : []} }
-      <input_data> is a list of Python arbitrary-precision ints indicating
-      what data to push into the simulation, and the output lists are
-      similarly filled when the simulation is complete
-    * num_out_values: number of total values to be read from the simulation to
-      finish the simulation and return.
-    * sname: signal naming for streams, "_V_V_" by default, vitis_hls uses "_V_"
-    * liveness_threshold: if no new output is detected after this many cycles,
-      terminate simulation
-    * hook_preclk: hook function to call prior to clock tick
-    * hook_postclk: hook function to call after clock tick
-
-    Returns: number of clock cycles elapsed for completion
-
-    """
-
-    for outp in io_dict["outputs"]:
-        _write_signal(sim, outp + sname + "TREADY", 1)
-
-    # observe if output is completely calculated
-    # total_cycle_count will contain the number of cycles the calculation ran
-    output_done = False
-    total_cycle_count = 0
-    output_count = 0
-    old_output_count = 0
-
-    # avoid infinite looping of simulation by aborting when there is no change in
-    # output values after 100 cycles
-    no_change_count = 0
-
-    # Dictionary that will hold the signals to drive to DUT
-    signals_to_write = {}
-
-    while not (output_done):
-        if hook_preclk:
-            hook_preclk(sim)
-        # Toggle falling edge to arrive at a delta cycle before the rising edge
-        toggle_neg_edge(sim)
-
-        # examine signals, decide how to act based on that but don't update yet
-        # so only _read_signal access in this block, no _write_signal
-        for inp in io_dict["inputs"]:
-            inputs = io_dict["inputs"][inp]
-            signal_name = inp + sname
-            if (
-                _read_signal(sim, signal_name + "TREADY") == 1
-                and _read_signal(sim, signal_name + "TVALID") == 1
-            ):
-                inputs = inputs[1:]
-            io_dict["inputs"][inp] = inputs
-
-        for outp in io_dict["outputs"]:
-            outputs = io_dict["outputs"][outp]
-            signal_name = outp + sname
-            if (
-                _read_signal(sim, signal_name + "TREADY") == 1
-                and _read_signal(sim, signal_name + "TVALID") == 1
-            ):
-                outputs = outputs + [_read_signal(sim, signal_name + "TDATA")]
-                output_count += 1
-            io_dict["outputs"][outp] = outputs
-
-        # update signals based on decisions in previous block, but don't examine anything
-        # so only _write_signal access in this block, no _read_signal
-        for inp in io_dict["inputs"]:
-            inputs = io_dict["inputs"][inp]
-            signal_name = inp + sname
-            signals_to_write[signal_name + "TVALID"] = 1 if len(inputs) > 0 else 0
-            signals_to_write[signal_name + "TDATA"] = inputs[0] if len(inputs) > 0 else 0
-
-        # Toggle rising edge to arrive at a delta cycle before the falling edge
-        toggle_pos_edge(sim, signals_to_write=signals_to_write)
-        if hook_postclk:
-            hook_postclk(sim)
-
-        total_cycle_count = total_cycle_count + 1
-
-        if output_count == old_output_count:
-            no_change_count = no_change_count + 1
-        else:
-            no_change_count = 0
-            old_output_count = output_count
-
-        # check if all expected output words received
-        if output_count == num_out_values:
-            output_done = True
-
-        # end sim on timeout
-        if no_change_count == liveness_threshold:
-            raise Exception(
-                "Error in simulation! Takes too long to produce output. "
-                "Consider setting the liveness_threshold parameter to a "
-                "larger value."
-            )
-
-    return total_cycle_count
