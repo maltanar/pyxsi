@@ -161,3 +161,6 @@ def toggle_neg_edge(sim, clk_name="ap_clk"):
 def toggle_pos_edge(sim, clk_name="ap_clk"):
     _write_signal(sim, clk_name, 1)
     sim.run(5000)
+
+def close_rtlsim(sim):
+    sim.close()
