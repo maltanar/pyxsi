@@ -60,6 +60,8 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
                 f.write(f"verilog work {src_line}\n")
             elif src_line.endswith(".vhd"):
                 f.write(f"vhdl2008 work {src_line}\n")
+            elif src_line.endswith(".sv"):
+                f.write(f"sv work {src_line}\n")
             else:
                 raise Exception(f"Unknown extension for .prj file sources: {src_line}")
 
