@@ -32,6 +32,7 @@ import os.path
 import pyxsi
 import subprocess
 import sys
+from typing import Optional
 
 
 def launch_process_helper(args, proc_env=None, cwd=None):
@@ -52,9 +53,28 @@ def launch_process_helper(args, proc_env=None, cwd=None):
         sys.stderr.write(cmd_err)
     return (cmd_out, cmd_err)
 
+def locate_glbl() -> Optional[str]:
+    """
+    Tries to determine the glbl.v file path from environment variables.
+    Returns None if it cannot be found.
+    """
+    # Get GLBL from the Vitis environment variable
+    vivado_path = os.environ.get('XILINX_VIVADO')
+    if vivado_path:
+        glbl_path = os.path.join(vivado_path, 'data', 'verilog', 'src', 'glbl.v')
+        if os.path.isfile(glbl_path):
+            return glbl_path
+    return None
+
+
 def compile_sim_obj(top_module_name, source_list, sim_out_dir):
     # create a .prj file with the source files
     with open(sim_out_dir + "/rtlsim.prj", "w") as f:
+
+        glbl = locate_glbl()
+        if glbl is not None:
+            f.write(f"verilog work {glbl}\n")
+
         for src_line in source_list:
             if src_line.endswith(".v"):
                 f.write(f"verilog work {src_line}\n")
@@ -71,7 +91,7 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
     xelab_libs = [
         "smartconnect_v1_0", "axi_protocol_checker_v1_1_12", "axi_protocol_checker_v1_1_13", 
         "axis_protocol_checker_v1_1_11", "axis_protocol_checker_v1_1_12", "xil_defaultlib", 
-        "unisims_ver", "xpm", "floating_point_v7_1_16", "floating_point_v7_0_21"
+        "unisims_ver", "xpm", "floating_point_v7_1_16", "floating_point_v7_0_21", "floating_point_v7_1_18",
     ]
 
     cmd_xelab = [
@@ -89,6 +109,9 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
     for lib in xelab_libs:
         cmd_xelab.append("-L")
         cmd_xelab.append(lib)
+
+    if locate_glbl() is not None:
+        cmd_xelab.insert(1, "work.glbl")
 
     launch_process_helper(cmd_xelab, cwd=sim_out_dir)
     out_so_relative_path = "xsim.dir/%s/xsimk.so" % top_module_name
