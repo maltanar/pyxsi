@@ -88,10 +88,16 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
     # now call xelab to generate the .so for the design to be simulated
     # TODO make debug controllable to allow faster sim when desired
     # list of libs for xelab retrieved from Vitis HLS cosim cmdline
+    # the particular lib version used depends on the Vivado/Vitis version being used
+    # but putting in multiple (nonpresent) versions seems to pose no problem as long
+    # as the correct one is also in there. at least this is how Vitis HLS cosim is
+    # handling it.
+    # TODO make this an optional param instead of hardcoding
     xelab_libs = [
         "smartconnect_v1_0", "axi_protocol_checker_v1_1_12", "axi_protocol_checker_v1_1_13", 
         "axis_protocol_checker_v1_1_11", "axis_protocol_checker_v1_1_12", "xil_defaultlib", 
         "unisims_ver", "xpm", "floating_point_v7_1_16", "floating_point_v7_0_21", "floating_point_v7_1_18",
+        "floating_point_v7_1_15",
     ]
 
     cmd_xelab = [
