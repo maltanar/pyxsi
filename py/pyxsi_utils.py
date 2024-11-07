@@ -153,7 +153,7 @@ def _find_signal(sim, signal_name):
     elif signal_name.lower() in signal_list:
         return signal_name.lower()
     else:
-        raise Exception("Signal not found: " + signal_name)
+        return None
 
 
 def _read_signal(sim, signal_name):
@@ -171,30 +171,46 @@ def _write_signal(sim, signal_name, signal_value):
     sim.set_port_value(signal_name, signal_bin_value)
 
 
-def reset_rtlsim(sim, rst_name="ap_rst_n", active_low=True, clk_name="ap_clk"):
-    _write_signal(sim, clk_name, 0)
+def reset_rtlsim(sim, rst_name="ap_rst_n", active_low=True, clk_name="ap_clk", clk2x_name="ap_clk2x"):
+    _write_signal(sim, clk_name, 1)
+    if not (_find_signal(sim, clk2x_name) is None):
+        _write_signal(sim, clk2x_name, 1)
     _write_signal(sim, rst_name, 0 if active_low else 1)
     for _ in range(2):
-        toggle_clk(sim, clk_name)
+        toggle_clk(sim, clk_name, clk2x_name)
 
     _write_signal(sim, rst_name, 1 if active_low else 0)
-    toggle_clk(sim, clk_name)
-    toggle_clk(sim, clk_name)
+    toggle_clk(sim, clk_name, clk2x_name)
+    toggle_clk(sim, clk_name, clk2x_name)
 
 
-def toggle_clk(sim, clk_name="ap_clk"):
-    toggle_neg_edge(sim, clk_name=clk_name)
-    toggle_pos_edge(sim, clk_name=clk_name)
+def toggle_clk(sim, clk_name="ap_clk", clk2x_name="ap_clk2x"):
+    toggle_neg_edge(sim, clk_name=clk_name, clk2x_name=clk2x_name)
+    toggle_pos_edge(sim, clk_name=clk_name, clk2x_name=clk2x_name)
 
 
-def toggle_neg_edge(sim, clk_name="ap_clk"):
-    _write_signal(sim, clk_name, 0)
-    sim.run(5000)
+def toggle_neg_edge(sim, clk_name="ap_clk", clk2x_name="ap_clk2x"):
+    if not (_find_signal(sim, clk2x_name) is None):
+        _write_signal(sim, clk_name, 0)
+        _write_signal(sim, clk2x_name, 1)
+        sim.run(5000)
+        _write_signal(sim, clk2x_name, 0)
+        sim.run(5000)
+    else:
+        _write_signal(sim, clk_name, 0)
+        sim.run(5000)    
 
 
-def toggle_pos_edge(sim, clk_name="ap_clk"):
-    _write_signal(sim, clk_name, 1)
-    sim.run(5000)
+def toggle_pos_edge(sim, clk_name="ap_clk", clk2x_name="ap_clk2x"):
+    if not (_find_signal(sim, clk2x_name) is None):
+        _write_signal(sim, clk_name, 1)
+        _write_signal(sim, clk2x_name, 1)
+        sim.run(5000)
+        _write_signal(sim, clk2x_name, 0)
+        sim.run(5000)
+    else:
+        _write_signal(sim, clk_name, 1)
+        sim.run(5000)
 
 def close_rtlsim(sim):
     sim.close()
