@@ -89,6 +89,7 @@ Loader::close()
     for(XSI_INT32 i=0; i<size; ++i) {
         delete[] _xsi_value_buffer[i];
     }
+    _xsi_value_buffer.clear();
 
     if (_design_handle) {
         _xsi_close(_design_handle);
