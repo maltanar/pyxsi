@@ -214,3 +214,95 @@ def toggle_pos_edge(sim, clk_name="ap_clk", clk2x_name="ap_clk2x"):
 
 def close_rtlsim(sim):
     sim.close()
+
+def rtlsim_multi_io(
+    handle,
+    io_dict,
+    num_out_values,
+    sname="_V_V_",
+    liveness_threshold=10000,
+    hook_preclk=None,
+    hook_postclk=None,
+):
+    for outp in io_dict["outputs"]:
+        _write_signal(handle, outp + sname + "TREADY", 1)
+
+    # observe if output is completely calculated
+    # total_cycle_count will contain the number of cycles the calculation ran
+    output_done = False
+    total_cycle_count = 0
+    output_count = 0
+    old_output_count = 0
+
+    # avoid infinite looping of simulation by aborting when there is no change in
+    # output values after 100 cycles
+    no_change_count = 0
+
+    while not (output_done):
+        signals_to_write = {}
+        if hook_preclk:
+            hook_preclk(handle)
+        # Toggle falling edge to arrive at a delta cycle before the rising edge
+        toggle_neg_edge(handle)
+
+        # examine signals, decide how to act based on that but don't update yet
+        # so only read_signal access in this block, no _write_signal
+        for inp in io_dict["inputs"]:
+            inputs = io_dict["inputs"][inp]
+            signal_name = inp + sname
+            if (
+                _read_signal(handle, signal_name + "TREADY") == 1
+                and _read_signal(handle, signal_name + "TVALID") == 1
+            ):
+                inputs = inputs[1:]
+            io_dict["inputs"][inp] = inputs
+
+        for outp in io_dict["outputs"]:
+            outputs = io_dict["outputs"][outp]
+            signal_name = outp + sname
+            if (
+                _read_signal(handle, signal_name + "TREADY") == 1
+                and _read_signal(handle, signal_name + "TVALID") == 1
+            ):
+                outputs = outputs + [_read_signal(handle, signal_name + "TDATA")]
+                output_count += 1
+            io_dict["outputs"][outp] = outputs
+
+        # update signals based on decisions in previous block, but don't examine anything
+        # so only write_signal access in this block, no read_signal
+        for inp in io_dict["inputs"]:
+            inputs = io_dict["inputs"][inp]
+            signal_name = inp + sname
+            signals_to_write[signal_name + "TVALID"] = 1 if len(inputs) > 0 else 0
+            signals_to_write[signal_name + "TDATA"] = inputs[0] if len(inputs) > 0 else 0
+
+        # Toggle rising edge to arrive at a delta cycle before the falling edge
+        toggle_pos_edge(handle)
+
+        for k, v in signals_to_write.items():
+            _write_signal(handle, k, v)
+
+        if hook_postclk:
+            hook_postclk(handle)
+
+        total_cycle_count = total_cycle_count + 1
+
+        if output_count == old_output_count:
+            no_change_count = no_change_count + 1
+        else:
+            no_change_count = 0
+            old_output_count = output_count
+
+        # check if all expected output words received
+        if output_count == num_out_values:
+            output_done = True
+
+        # end sim on timeout
+        if no_change_count == liveness_threshold:
+            raise Exception(
+                "Error in simulation! Takes too long to produce output. "
+                "Consider setting the liveness_threshold parameter to a "
+                "larger value."
+            )
+
+    return total_cycle_count
