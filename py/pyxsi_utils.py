@@ -201,16 +201,20 @@ def toggle_neg_edge(sim, clk_name="ap_clk", clk2x_name="ap_clk2x"):
         sim.run(5000)    
 
 
-def toggle_pos_edge(sim, clk_name="ap_clk", clk2x_name="ap_clk2x"):
+def toggle_pos_edge(sim, clk_name="ap_clk", clk2x_name="ap_clk2x", signals_to_write={}):
     if not (_find_signal(sim, clk2x_name) is None):
         _write_signal(sim, clk_name, 1)
         _write_signal(sim, clk2x_name, 1)
         sim.run(5000)
+        for k, v in signals_to_write.items():
+            _write_signal(sim, k, v)
         _write_signal(sim, clk2x_name, 0)
         sim.run(5000)
     else:
         _write_signal(sim, clk_name, 1)
         sim.run(5000)
+        for k, v in signals_to_write.items():
+            _write_signal(sim, k, v)
 
 def close_rtlsim(sim):
     sim.close()
@@ -279,10 +283,7 @@ def rtlsim_multi_io(
             signals_to_write[signal_name + "TDATA"] = inputs[0] if len(inputs) > 0 else 0
 
         # Toggle rising edge to arrive at a delta cycle before the falling edge
-        toggle_pos_edge(handle, clk_name=clk_name, clk2x_name=clk2x_name)
-
-        for k, v in signals_to_write.items():
-            _write_signal(handle, k, v)
+        toggle_pos_edge(handle, clk_name=clk_name, clk2x_name=clk2x_name, signals_to_write=signals_to_write)
 
         if hook_postclk:
             hook_postclk(handle)
