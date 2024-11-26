@@ -167,7 +167,7 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
         "smartconnect_v1_0", "axi_protocol_checker_v1_1_12", "axi_protocol_checker_v1_1_13", 
         "axis_protocol_checker_v1_1_11", "axis_protocol_checker_v1_1_12", "xil_defaultlib", 
         "unisims_ver", "xpm", "floating_point_v7_1_16", "floating_point_v7_0_21", "floating_point_v7_1_18",
-        "floating_point_v7_1_15",
+        "floating_point_v7_1_15", "floating_point_v7_1_19", 
     ]
 
     cmd_xelab = [
@@ -200,10 +200,24 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
 
 
 def load_sim_obj(sim_out_dir, out_so_relative_path, tracefile=None, is_toplevel_verilog=True):
+    vivado_path = os.environ.get('XILINX_VIVADO')
+    # xsi kernel lib name depends on Vivado version (renamed in 2024.2)
+    try:
+        if vivado_path:
+            if float(vivado_path.split("/")[-1]) > 2024.1:
+                simkernel_so = "libxv_simulator_kernel.so"
+            else:
+                simkernel_so = "librdi_simulator_kernel.so"
+        else:
+            simkernel_so = "librdi_simulator_kernel.so"
+    except Exception as e:
+        # fallback/default
+        simkernel_so = "librdi_simulator_kernel.so"
     oldcwd = os.getcwd()
     os.chdir(sim_out_dir)
     sim = pyxsi.XSI(
         out_so_relative_path,
+        simkernel_so,
         is_toplevel_verilog=is_toplevel_verilog,
         tracefile=tracefile,
         logfile="rtlsim.log",
