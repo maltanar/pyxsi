@@ -199,7 +199,7 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
     return (sim_out_dir, out_so_relative_path)
 
 
-def load_sim_obj(sim_out_dir, out_so_relative_path, tracefile=None, is_toplevel_verilog=True):
+def get_simkernel_so():
     vivado_path = os.environ.get('XILINX_VIVADO')
     # xsi kernel lib name depends on Vivado version (renamed in 2024.2)
     try:
@@ -213,6 +213,11 @@ def load_sim_obj(sim_out_dir, out_so_relative_path, tracefile=None, is_toplevel_
     except Exception as e:
         # fallback/default
         simkernel_so = "librdi_simulator_kernel.so"
+    return simkernel_so
+
+def load_sim_obj(sim_out_dir, out_so_relative_path, tracefile=None, is_toplevel_verilog=True, simkernel_so=None):
+    if simkernel_so is None:
+        simkernel_so = get_simkernel_so()
     oldcwd = os.getcwd()
     os.chdir(sim_out_dir)
     sim = pyxsi.XSI(
