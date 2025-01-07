@@ -257,12 +257,12 @@ def _write_signal(sim, signal_name, signal_value):
     sim.set_port_value(signal_name, signal_bin_value)
 
 
-def reset_rtlsim(sim, rst_name="ap_rst_n", active_low=True, clk_name="ap_clk", clk2x_name="ap_clk2x"):
+def reset_rtlsim(sim, rst_name="ap_rst_n", active_low=True, clk_name="ap_clk", clk2x_name="ap_clk2x", n_cycles=16):
     _write_signal(sim, clk_name, 1)
     if not (_find_signal(sim, clk2x_name) is None):
         _write_signal(sim, clk2x_name, 1)
     _write_signal(sim, rst_name, 0 if active_low else 1)
-    for _ in range(2):
+    for _ in range(n_cycles):
         toggle_clk(sim, clk_name, clk2x_name)
 
     _write_signal(sim, rst_name, 1 if active_low else 0)
