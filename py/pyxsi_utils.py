@@ -142,15 +142,20 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
         if glbl is not None:
             f.write(f"verilog work {glbl}\n")
 
+        # extract (unique, by using a set) verilog headers for inclusion
+        verilog_headers = {os.path.dirname(x) for x in source_list if x.endswith(".vh")}
+        verilog_header_incl_str = " ".join(["--include " +  x for x in verilog_headers])
+
         for src_line in source_list:
             if src_line.endswith(".v"):
-                f.write(f"verilog work {src_line}\n")
+                f.write(f"verilog work {verilog_header_incl_str} {src_line}\n")
             elif src_line.endswith(".vhd"):
+                # note that Verilog header incls are not added for VHDL
                 f.write(f"vhdl2008 work {src_line}\n")
             elif src_line.endswith(".sv"):
-                f.write(f"sv work {src_line}\n")
+                f.write(f"sv work {verilog_header_incl_str} {src_line}\n")
             elif src_line.endswith(".vh"):
-                # skip adding Verilog headers
+                # skip adding Verilog headers directly (see verilog_header_incl_str)
                 continue
             else:
                 raise Exception(f"Unknown extension for .prj file sources: {src_line}")
