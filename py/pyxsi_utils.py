@@ -134,7 +134,7 @@ def locate_glbl() -> Optional[str]:
     return None
 
 
-def compile_sim_obj(top_module_name, source_list, sim_out_dir):
+def compile_sim_obj(top_module_name, source_list, sim_out_dir, debug=False):
     # create a .prj file with the source files
     with open(sim_out_dir + "/rtlsim.prj", "w") as f:
 
@@ -181,12 +181,14 @@ def compile_sim_obj(top_module_name, source_list, sim_out_dir):
         "-relax",
         "-prj",
         "rtlsim.prj",
-        "-debug",
-        "all",
         "-dll",
         "-s",
         top_module_name,
     ]
+    # Add debug flag if debug is enabled
+    if debug:
+        cmd_xelab.append("-debug")
+        cmd_xelab.append("all")
     for lib in xelab_libs:
         cmd_xelab.append("-L")
         cmd_xelab.append(lib)
