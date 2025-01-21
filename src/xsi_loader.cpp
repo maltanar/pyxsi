@@ -91,6 +91,10 @@ Loader::close()
     }
     _xsi_value_buffer.clear();
 
+    if (_simkernel_lib) {
+        SharedLibrary::symbol_type  vptr;
+        if(_simkernel_lib.getsymbol("svTypeInfo", vptr)) *((void**)vptr) = nullptr;
+    }
     if (_design_handle) {
         _xsi_close(_design_handle);
         _design_handle = NULL;
