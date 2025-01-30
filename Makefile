@@ -1,7 +1,15 @@
 XILINX_VIVADO ?= /opt/xilinx/Vivado/2023.2
+PYXSI_MAKE_USE_DOCKER ?= 1
 
+LAUNCH_DOCKER =
+ifeq ($(PYXSI_MAKE_USE_DOCKER),1)
 # See if we're inside docker. If not, wrap ourselves in docker and try again.
 ifeq ($(wildcard /.dockerenv),)
+LAUNCH_DOCKER = 1
+endif
+endif
+
+ifdef LAUNCH_DOCKER
 include Makefile.docker-boilerplate
 else
 # For the remainder of this Makefile, we're running within Docker and can focus
